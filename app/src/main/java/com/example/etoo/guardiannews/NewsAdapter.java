@@ -13,7 +13,7 @@ import android.widget.TextView;
 import java.util.List;
 
 public class NewsAdapter extends ArrayAdapter<News> {
-
+    View listItemView;
     private TextView itemTitle;
     private TextView time;
     private TextView section;
@@ -28,6 +28,8 @@ public class NewsAdapter extends ArrayAdapter<News> {
     public View getView(int position, @Nullable View convertView, @NonNull ViewGroup parent) {
         // Check if there is an existing list item view (called convertView) that we can reuse,
         // otherwise, if convertView is null, then inflate a new list item layout.
+        // Check if there is an existing list item view (called convertView) that we can reuse,
+        // otherwise, if convertView is null, then inflate a new list item layout.
         View listItemView = convertView;
         if (listItemView == null) {
             listItemView = LayoutInflater.from(getContext()).inflate(
@@ -36,13 +38,22 @@ public class NewsAdapter extends ArrayAdapter<News> {
         News currentNews = getItem(position);
 
         itemTitle = listItemView.findViewById(R.id.itemTitle);
-        section = listItemView.findViewById(R.id.section);
-        time = listItemView.findViewById(R.id.minutes_ago);
-
         itemTitle.setText(currentNews.getTitle());
+
+        section = listItemView.findViewById(R.id.section);
         section.setText(currentNews.getSectionName());
+
+        time = listItemView.findViewById(R.id.minutes_ago);
         time.setText(currentNews.getTime());
 
         return listItemView;
+
+
+    }
+
+    @Override
+    public int getCount() {
+        if(listItemView == null) return 0;
+        return super.getCount();
     }
 }

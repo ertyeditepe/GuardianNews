@@ -30,14 +30,25 @@ import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.charset.Charset;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Helper methods related to requesting and receiving earthquake data from USGS.
  */
 public final class QueryUtils {
 
+    private static final String KEY_SECTION_NAME = "sectionName";
+    private static final String KEY_JSON_OBJECT_RESPONSE = "response";
+    private static final String KEY_JSON_ARRAY_RESULTS = "results";
+    private static final String KEY_JSON_ARRAY_TAGS = "tags";
+    private static final String KEY_DATE = "webPublicationDate";
+    private static final String KEY_TITLE = "webTitle";
+    private static final String KEY_URL = "webUrl";
     /** Tag for the log messages */
     private static final String LOG_TAG = QueryUtils.class.getSimpleName();
 
@@ -55,12 +66,6 @@ public final class QueryUtils {
     public static List<News> fetchNewsData(String requestUrl) {
         Log.i(LOG_TAG,"fetchNewsData() method called");
 
-        try {
-            Thread.sleep(2000);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
         // Create URL object
         URL url = createUrl(requestUrl);
 
@@ -77,6 +82,21 @@ public final class QueryUtils {
 
         // Return the list of {@link Earthquake}s
         return news;
+    }
+    /**
+     * Date Helper
+     */
+    private static String formatDate(String dateData) {
+        String guardianJsonDateFormat = "yyyy-MM-dd'T'HH:mm:ss'Z'";
+        SimpleDateFormat jsonDateFormatter = new SimpleDateFormat(guardianJsonDateFormat, Locale.UK);
+        try {
+            Date jsonDateToParse = jsonDateFormatter.parse(dateData);
+            String resultDate = "MMM d, yyy";
+            SimpleDateFormat resultDateFormatter = new SimpleDateFormat(resultDate, Locale.UK);
+            return resultDateFormatter.format(jsonDateToParse);
+        } catch (ParseException e) {
+            return "";
+        }
     }
 
     /**
@@ -121,7 +141,7 @@ public final class QueryUtils {
                 Log.e(LOG_TAG, "Error response code: " + urlConnection.getResponseCode());
             }
         } catch (IOException e) {
-            Log.e(LOG_TAG, "Problem retrieving the earthquake JSON results.", e);
+            Log.e(LOG_TAG, "Problem retrieving the news JSON results.", e);
         } finally {
             if (urlConnection != null) {
                 urlConnection.disconnect();
@@ -158,9 +178,9 @@ public final class QueryUtils {
      * Return a list of {@link News} objects that has been built up from
      * parsing the given JSON response.
      */
-    private static List<News> extractFeatureFromJson(String earthquakeJSON) {
+    private static List<News> extractFeatureFromJson(String newsJSON) {
         // If the JSON string is empty or null, then return early.
-        if (TextUtils.isEmpty(earthquakeJSON)) {
+        if (TextUtils.isEmpty(newsJSON)) {
             return null;
         }
 
@@ -171,41 +191,28 @@ public final class QueryUtils {
         // is formatted, a JSONException exception object will be thrown.
         // Catch the exception so the app doesn't crash, and print the error message to the logs.
         try {
-            // Create a JSONObject from the JSON response string
-            JSONObject baseJsonResponse = new JSONObject(earthquakeJSON);
-
-            // Extract the JSONArray associated with the key called "features",
-            // which represents a list of features (or earthquakes).
-            JSONObject responseObject = baseJsonResponse.getJSONObject("response");
-
-            JSONArray jsonArray = new JSONArray(responseObject.toString());
-
-            // For each earthquake in the earthquakeArray, create an {@link Earthquake} object
-            for (int i = 0; i < jsonArray.length(); i++) {
-
-                // Get a single earthquake at position i within the list of earthquakes
-                JSONObject currentNews = jsonArray.getJSONObject(i);
-
-                // For a given earthquake, extract the JSONObject associated with the
-                // key called "properties", which represents a list of all properties
-                // for that earthquake.
-                JSONObject results = currentNews.getJSONObject("results");
-
+            //Create a JSONObject from the JSON response string
+            JSONObject jsonResponse = new JSONObject(newsJSON);
+            JSONObject jsonResults = jsonResponse.getJSONObject(KEY_JSON_OBJECT_RESPONSE);
+            // Extract the JSONArray associated with the key called "results",
+            JSONArray resultsArray = jsonResults.getJSONArray(KEY_JSON_ARRAY_RESULTS);
+            // For each article news in the newsAppArray, create an {@link NewsApp} object
+            for (int i = 0; i < resultsArray.length(); i++) {
+                //Get a single article news at position i within the list of newsApps
+                JSONObject currentNewsApp = resultsArray.getJSONObject(i);
                 // Extract the value for the key called "sectionName"
-                String sectionName = results.getString("sectionName");
-
-                // Extract the value for the key called "webPublicationDate"
-                String publicationDate = results.getString("webPublicationDate");
-
+                String secName = currentNewsApp.getString(KEY_SECTION_NAME);
+                //Extract the value for the key called "webPublicationDate".
+                String artDate = currentNewsApp.getString(KEY_DATE);
+                artDate = formatDate(artDate);
                 // Extract the value for the key called "webTitle"
-                String itemTitle = results.getString("webTitle");
-
-                // Extract the value for the key called "webUrl"
-                String url = results.getString("webUrl");
-
+                String artTitle = currentNewsApp.getString(KEY_TITLE);
+                //Extract the value for the key called"webUrl"
+                String url = currentNewsApp.getString(KEY_URL);
+                //Extract the value of the author
                 // Create a new {@link Earthquake} object with the magnitude, location, time,
                 // and url from the JSON response.
-                News newsItem = new News(sectionName, publicationDate, url, itemTitle);
+                News newsItem = new News(secName, artDate, url, artTitle);
 
                 // Add the new {@link Earthquake} to the list of earthquakes.
                 news.add(newsItem);            }
@@ -214,7 +221,7 @@ public final class QueryUtils {
             // If an error is thrown when executing any of the above statements in the "try" block,
             // catch the exception here, so the app doesn't crash. Print a log message
             // with the message from the exception.
-            Log.e("QueryUtils", "Problem parsing the earthquake JSON results", e);
+            Log.e("QueryUtils", "Problem parsing the news JSON results", e);
         }
 
         // Return the list of earthquakes
